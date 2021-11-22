@@ -17,7 +17,7 @@ export TUNNEL_WEBSITE_DOMAIN=<your_tunnel_website_domain>
 Run the task to generate the certificates in `./tmp/<cert_name>`
 
 ~~~sh
-gulp certificates
+gulp certificate
 ~~~
 
 ### Generate metadata
@@ -45,7 +45,7 @@ gulp
 
 Copy the certificate and entrypoint of your IdP in text files into:
 
-* `idps/<idp_name>/entrypoint.txt
-* `idps/<id_pname>/certificate.txt
+* idps/<idp_name>/entrypoint.txt
+* idps/<id_pname>/certificate.txt
 
 ...and start the app using the env variable `IDP_NAME` set to the folder name
