@@ -1,8 +1,8 @@
 import url from 'url';
-import del from 'del';
 import gulp from 'gulp';
 import log from 'fancy-log';
 import mkdirp from 'mkdirp';
+import { deleteAsync } from 'del';
 import selfsigned from 'selfsigned';
 import { promises as fs } from 'fs';
 import Graceful from 'node-graceful';
@@ -54,7 +54,7 @@ const ensureContainerRemoved = async ({ containerName }) => {
 };
 
 export async function clean() {
-  await del(['.tmp']);
+  await deleteAsync(['.tmp']);
 }
 
 export async function certificate() {

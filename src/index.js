@@ -10,7 +10,7 @@ import { promisify } from 'util';
 import Graceful from 'node-graceful';
 import session from 'express-session';
 import { cleanEnv, str } from 'envalid';
-import passportSamlNs from 'passport-saml';
+import passportSamlNs from '@node-saml/passport-saml';
 
 const logger = acho();
 
@@ -57,6 +57,7 @@ const samlStrategy = new MultiSamlStrategy({
   },
   issuer: `https://${env.TUNNEL_WEBSITE_DOMAIN}`,
   decryptionPvk: deAndEncryptionKeys.private,
+  wantAssertionsSigned: false,
   forceAuthn: true
 }, (profile, done) => done(null, { ...profile }));
 
