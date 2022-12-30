@@ -7,9 +7,8 @@ Website for testing SAML authentication and authorization
 ### Set necessary environment variables
 
 ~~~sh
-export IDP_NAME=<your_idp_name> # default: samltest
-export TUNNEL_TOKEN=<your_tunnel_token>
-export TUNNEL_WEBSITE_DOMAIN=<your_tunnel_website_domain>
+export TUNNEL_TOKEN=<tunnel_token>
+export TUNNEL_WEBSITE_DOMAIN=<tunnel_website_domain>
 ~~~
 
 ### Generate certificates
@@ -20,35 +19,26 @@ Run the task to generate the certificates in `./tmp/<cert_name>`
 gulp certificate
 ~~~
 
-### Generate metadata
-
-Run the task to generate the metadata in `./tmp/generated-metadata.xml`
-
-~~~sh
-gulp metadata
-~~~
-
-### Register the app with an IdP
-
-For the case of samltest:
-
-Go to https://samltest.id/upload.php and upload the geneterated metadata file at `./.tmp/generated-metadata.xml`
-
-
 ### Run the app
 
 ~~~
 gulp
 ~~~
 
-## Create a new IdP configuration
+### Register the app with an Identity Provider
+
+For the case of samltest:
+
+Go to https://samltest.id/upload.php and register using the metadata endpoint address `https://<tunnel_website_domain>/saml/metadata`
+
+## Add a new Identity Provider
 
 Copy the certificate and entrypoint of your IdP in text files into:
 
 * idps/<idp_name>/entrypoint.txt
 * idps/<id_pname>/certificate.txt
 
-...and start the app using the env variable `IDP_NAME` set to the folder name
+**NOTE: The website currently uses the first Identity Provider found**
 
 ---
 

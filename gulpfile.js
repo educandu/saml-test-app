@@ -9,9 +9,6 @@ import Graceful from 'node-graceful';
 import { spawn } from 'child_process';
 import { Docker } from 'docker-cli-js';
 import { cleanEnv, str } from 'envalid';
-import passportSaml from 'passport-saml';
-
-const SamlStrategy = passportSaml.Strategy;
 
 const TEST_WEBSITE_TUNNEL_IMAGE = 'educandu/inlets:1.0.0';
 const TEST_WEBSITE_TUNNEL_CONTAINER_NAME = 'website-tunnel';
@@ -23,12 +20,11 @@ Graceful.on('exit', () => {
 
 const isMac = process.platform === 'darwin';
 const containerCommandTimeoutMs = isMac ? 2000 : 1000;
-const baseDir = url.fileURLToPath(new URL('./.tmp', import.meta.url).href);
+const certDir = url.fileURLToPath(new URL('./.tmp', import.meta.url).href);
 
 const env = cleanEnv(process.env, {
   TUNNEL_TOKEN: str(),
-  TUNNEL_WEBSITE_DOMAIN: str(),
-  IDP_NAME: str({ default: 'samltest' })
+  TUNNEL_WEBSITE_DOMAIN: str()
 });
 
 const runDockerCommand = async (command, waitMs = 0) => {
@@ -64,34 +60,13 @@ export async function clean() {
 export async function certificate() {
   log('Generating new certificate for encryption')
   const attrs = [{ name: 'commonName', value: env.TUNNEL_WEBSITE_DOMAIN }];
-  const pems = selfsigned.generate(attrs, { days: 3650 });
+  const pems = selfsigned.generate(attrs, { days: 100 * 365 });
   console.log(pems);
 
-  await mkdirp(baseDir);
-  await fs.writeFile(`${baseDir}/encrypt-${env.TUNNEL_WEBSITE_DOMAIN}.key`, pems.private, 'utf8');
-  await fs.writeFile(`${baseDir}/encrypt-${env.TUNNEL_WEBSITE_DOMAIN}.pub`, pems.public, 'utf8');
-  await fs.writeFile(`${baseDir}/encrypt-${env.TUNNEL_WEBSITE_DOMAIN}.cert`, pems.cert, 'utf8');
-}
-
-export async function metadata() {
-
-  const decryptionPvk = await fs.readFile(`${baseDir}/encrypt-${env.TUNNEL_WEBSITE_DOMAIN}.key`, 'utf8');
-  const cert = await fs.readFile(`${baseDir}/encrypt-${env.TUNNEL_WEBSITE_DOMAIN}.cert`, 'utf8');
-  const idPEntrypoint = (await fs.readFile(`./idps/${env.IDP_NAME}/entrypoint.txt`, 'utf8')).trim();
-  const idPCertificate = (await fs.readFile(`./idps/${env.IDP_NAME}/certificate.txt`, 'utf8')).trim();
-
-  const samlStrategy = new SamlStrategy({
-    callbackUrl: `https://${env.TUNNEL_WEBSITE_DOMAIN}/saml/login/callback`,
-    entryPoint: idPEntrypoint,
-    issuer: `https://${env.TUNNEL_WEBSITE_DOMAIN}`,
-    cert: idPCertificate,
-    decryptionPvk
-  }, () => {});
-
-  log('Generating new certificate for encryption')
-  const metadata = samlStrategy.generateServiceProviderMetadata(cert);
-  console.log(metadata);
-  await fs.writeFile(`${baseDir}/generated-metadata.xml`, metadata, 'utf8');
+  await mkdirp(certDir);
+  await fs.writeFile(`${certDir}/encrypt-${env.TUNNEL_WEBSITE_DOMAIN}.key`, pems.private, 'utf8');
+  await fs.writeFile(`${certDir}/encrypt-${env.TUNNEL_WEBSITE_DOMAIN}.pub`, pems.public, 'utf8');
+  await fs.writeFile(`${certDir}/encrypt-${env.TUNNEL_WEBSITE_DOMAIN}.cert`, pems.cert, 'utf8');
 }
 
 export async function startTunnel() {
@@ -120,7 +95,7 @@ export async function startTunnel() {
 }
 
 function spawnServer() {
-  server = spawn(process.execPath, ['src/index.js', env.IDP_NAME], { env: { ...process.env }, stdio: 'inherit' });
+  server = spawn(process.execPath, ['src/index.js'], { env: { ...process.env }, stdio: 'inherit' });
   server.once('exit', () => {
     server = null;
   });
