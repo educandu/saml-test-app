@@ -29,7 +29,7 @@ gulp
 
 For the case of samltest:
 
-Go to https://samltest.id/upload.php and register using the metadata endpoint address `https://<tunnel_website_domain>/saml/metadata`
+Go to https://samltest.id/upload.php and register using the metadata endpoint address `https://<tunnel_website_domain>/saml/metadata/<idp_name>`
 
 ## Add a new Identity Provider
 
@@ -37,8 +37,6 @@ Copy the certificate and entrypoint of your IdP in text files into:
 
 * idps/<idp_name>/entrypoint.txt
 * idps/<id_pname>/certificate.txt
-
-**NOTE: The website currently uses the first Identity Provider found**
 
 ---
 

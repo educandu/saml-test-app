@@ -10,11 +10,11 @@ import { promisify } from 'util';
 import Graceful from 'node-graceful';
 import session from 'express-session';
 import { cleanEnv, str } from 'envalid';
-import passportSaml from 'passport-saml';
+import passportSamlNs from 'passport-saml';
 
 const logger = acho();
 
-const SamlStrategy = passportSaml.Strategy;
+const { MultiSamlStrategy } = passportSamlNs;
 
 const env = cleanEnv(process.env, {
   TUNNEL_WEBSITE_DOMAIN: str()
@@ -24,11 +24,12 @@ const baseDir = url.fileURLToPath(new URL('../', import.meta.url).href);
 const certDir = path.join(baseDir, './.tmp');
 const sessionSecret = 'eb750d1ead0a413ea1984037afb90967';
 
-const idpNames = glob.sync(`${baseDir}/idps/*/`).map(dir => path.basename(dir));
-const idpName = idpNames[0];
-
-const idPEntrypoint = fs.readFileSync(`${baseDir}/idps/${idpName}/entrypoint.txt`, 'utf8').trim();
-const idPCertificate = fs.readFileSync(`${baseDir}/idps/${idpName}/certificate.txt`, 'utf8').trim();
+const idpKeys = glob.sync(`${baseDir}/idps/*/`).map(dir => path.basename(dir));
+const identityProviders = idpKeys.map(key => ({
+  key,
+  entryPoint: fs.readFileSync(`${baseDir}/idps/${key}/entrypoint.txt`, 'utf8').trim(),
+  cert: fs.readFileSync(`${baseDir}/idps/${key}/certificate.txt`, 'utf8').trim()
+}));
 
 const deAndEncryptionKeys = {
   private: fs.readFileSync(`${certDir}/encrypt-${env.TUNNEL_WEBSITE_DOMAIN}.key`, 'utf8'),
@@ -36,16 +37,30 @@ const deAndEncryptionKeys = {
   cert: fs.readFileSync(`${certDir}/encrypt-${env.TUNNEL_WEBSITE_DOMAIN}.cert`, 'utf8')
 };
 
-const samlStrategy = new SamlStrategy({
-  callbackUrl: `https://${env.TUNNEL_WEBSITE_DOMAIN}/saml/login-callback`,
-  entryPoint: idPEntrypoint,
+const idpKeySymbol = Symbol('idpKey');
+
+const setIdpKeyForRequest = (req, idpName) => {
+  return req[idpKeySymbol] = idpName;
+};
+
+const getIdpKeyForRequest = req => {
+  return req[idpKeySymbol] || null;
+};
+
+const samlStrategy = new MultiSamlStrategy({
+  getSamlOptions: (req, done) => {
+    const providerKey = getIdpKeyForRequest(req);
+    const provider = identityProviders.find(p => p.key === providerKey);
+    return provider
+      ? done(null, { entryPoint: provider.entryPoint, cert: provider.cert, callbackUrl: `https://${env.TUNNEL_WEBSITE_DOMAIN}/saml/login-callback/${provider.key}` })
+      : done(new Error(`No identity provider with key '${providerKey}' is available`));
+  },
   issuer: `https://${env.TUNNEL_WEBSITE_DOMAIN}`,
-  cert: idPCertificate,
   decryptionPvk: deAndEncryptionKeys.private,
   forceAuthn: true
 }, (profile, done) => done(null, { ...profile }));
 
-passport.use(samlStrategy);
+passport.use('saml', samlStrategy);
 
 passport.serializeUser((user, done) => done(null, user));
 
@@ -59,16 +74,19 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 app.get(
-  '/saml/metadata',
-  function (req, res) {
-    const metadata = samlStrategy.generateServiceProviderMetadata(deAndEncryptionKeys.cert);
-    res.set('content-type', 'text/xml').send(metadata);
+  '/saml/metadata/:idpKey',
+  function (req, res, next) {
+    setIdpKeyForRequest(req, req.params.idpKey);
+    samlStrategy.generateServiceProviderMetadata(req, deAndEncryptionKeys.cert, null, (err, metadata) => {
+      return err ? next(err) : res.set('content-type', 'text/xml').send(metadata);
+    });
   }
 );
 
 app.get(
-  '/saml/login',
+  '/saml/login/:idpKey',
   function (req, res, next) {
+    setIdpKeyForRequest(req, req.params.idpKey);
     passport.authenticate('saml', err => {
       return err ? next(err) : res.end();
     })(req, res, next);
@@ -76,22 +94,23 @@ app.get(
 );
 
 app.post(
-  '/saml/login-callback',
+  '/saml/login-callback/:idpKey',
   express.urlencoded({ extended: false }),
   function (req, res, next) {
-    passport.authenticate('saml', (err, user) => {
+    setIdpKeyForRequest(req, req.params.idpKey);
+    passport.authenticate('saml', (err, profile) => {
       if (err) {
         return next(err);
       }
 
-      if (!user) {
-        return res.redirect('/this-is-redirected-from-callback-without-user');
+      if (!profile) {
+        return res.redirect('/this-is-redirected-from-callback-without-profile');
       }
 
       req.session.samlInfo = {
-        provider: idpName,
+        providerKey: getIdpKeyForRequest(req),
         loggedInOn: new Date(),
-        user
+        profile
       };
 
       return res.redirect('/this-is-redirected-from-callback-with-success');
@@ -100,7 +119,7 @@ app.post(
 );
 
 app.get('*', (req, res) => {
-  const body = JSON.stringify({
+  const requestInfo = JSON.stringify({
     originalUrl: req.originalUrl,
     user: req.user,
     session: req.session
@@ -108,8 +127,8 @@ app.get('*', (req, res) => {
 
   const html = `
     <!DOCTYPE html>
-    <pre>${body}</pre>
-    <p><a href="/saml/login">LOGIN</a></p>
+    <pre>${requestInfo}</pre>
+    ${identityProviders.map(p => `<p><a href="/saml/login/${p.key}">Login with ${p.key}</a></p>`).join(' | ')}
   `.trim();
 
   return res.set('content-type', 'text/html').send(html);
