@@ -64,9 +64,10 @@ export async function certificate() {
   console.log(pems);
 
   await mkdirp(certDir);
-  await fs.writeFile(`${certDir}/encrypt-${env.TUNNEL_WEBSITE_DOMAIN}.key`, pems.private, 'utf8');
-  await fs.writeFile(`${certDir}/encrypt-${env.TUNNEL_WEBSITE_DOMAIN}.pub`, pems.public, 'utf8');
-  await fs.writeFile(`${certDir}/encrypt-${env.TUNNEL_WEBSITE_DOMAIN}.cert`, pems.cert, 'utf8');
+  await fs.writeFile(`${certDir}/${env.TUNNEL_WEBSITE_DOMAIN}.key`, pems.private, 'utf8');
+  await fs.writeFile(`${certDir}/${env.TUNNEL_WEBSITE_DOMAIN}.pub`, pems.public, 'utf8');
+  await fs.writeFile(`${certDir}/${env.TUNNEL_WEBSITE_DOMAIN}.crt`, pems.cert, 'utf8');
+  await fs.writeFile(`${certDir}/${env.TUNNEL_WEBSITE_DOMAIN}.json`, JSON.stringify(pems), 'utf8')
 }
 
 export async function startTunnel() {

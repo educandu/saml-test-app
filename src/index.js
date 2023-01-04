@@ -31,11 +31,8 @@ const identityProviders = idpKeys.map(key => ({
   cert: fs.readFileSync(`${baseDir}/idps/${key}/certificate.txt`, 'utf8').trim()
 }));
 
-const deAndEncryptionKeys = {
-  private: fs.readFileSync(`${certDir}/encrypt-${env.TUNNEL_WEBSITE_DOMAIN}.key`, 'utf8'),
-  public: fs.readFileSync(`${certDir}/encrypt-${env.TUNNEL_WEBSITE_DOMAIN}.pub`, 'utf8'),
-  cert: fs.readFileSync(`${certDir}/encrypt-${env.TUNNEL_WEBSITE_DOMAIN}.cert`, 'utf8')
-};
+const certsJson = fs.readFileSync(`${certDir}/${env.TUNNEL_WEBSITE_DOMAIN}.json`, 'utf8');
+const deAndEncryptionKeys = JSON.parse(certsJson);
 
 const idpKeySymbol = Symbol('idpKey');
 

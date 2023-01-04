@@ -13,7 +13,7 @@ export TUNNEL_WEBSITE_DOMAIN=<tunnel_website_domain>
 
 ### Generate certificates
 
-Run the task to generate the certificates in `./tmp/<cert_name>`
+Run the task to generate the certificate for the website domain in `./tmp/<tunnel_website_domain>.json`
 
 ~~~sh
 gulp certificate
@@ -36,7 +36,7 @@ Go to https://samltest.id/upload.php and register using the metadata endpoint ad
 Copy the certificate and entrypoint of your IdP in text files into:
 
 * idps/<idp_name>/entrypoint.txt
-* idps/<id_pname>/certificate.txt
+* idps/<idp_name>/certificate.txt
 
 ---
 
